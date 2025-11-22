@@ -108,11 +108,11 @@ export const Controls: React.FC<ControlsProps> = ({
 
   return (
     <div 
-        className={`absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:top-4 md:bottom-4 md:w-[360px] bg-white/30 backdrop-blur-xl p-4 rounded-3xl shadow-2xl border border-white/40 z-20 ring-1 ring-black/5 overflow-y-auto scrollbar-hide flex flex-col transition-all duration-500 ease-in-out
+        className={`absolute bottom-4 left-4 right-4 max-h-[75dvh] md:left-auto md:right-4 md:top-4 md:bottom-4 md:w-[360px] md:max-h-none bg-white/30 backdrop-blur-xl p-4 rounded-3xl shadow-2xl border border-white/40 z-20 ring-1 ring-black/5 flex flex-col transition-all duration-500 ease-in-out overflow-hidden
         ${isPlaying ? 'opacity-0 translate-y-10 pointer-events-none' : 'opacity-100 translate-y-0 pointer-events-auto'}`}
     >
       
-      {/* Mode Toggles */}
+      {/* Mode Toggles - Fixed Header */}
       <div className="flex p-1 bg-slate-800/10 rounded-xl mb-4 flex-shrink-0">
         <button 
           onClick={() => setMode('batting')}
@@ -128,9 +128,10 @@ export const Controls: React.FC<ControlsProps> = ({
         </button>
       </div>
 
+      {/* Scrollable Content Area */}
       {mode === 'batting' ? (
         // BATTING CONTROLS (Simple Sliders)
-        <div className="space-y-6 flex-1 overflow-y-auto scrollbar-hide pb-4">
+        <div className="space-y-6 flex-1 overflow-y-auto pb-4 px-1">
           <h2 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
              <Sliders className="w-4 h-4" /> 打撃設定
           </h2>
@@ -206,7 +207,7 @@ export const Controls: React.FC<ControlsProps> = ({
         </div>
       ) : (
         // PITCHING CONTROLS (Data Grid)
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-1 pb-1">
              {/* Visual Widgets Row */}
              <div className="flex gap-2 mb-3 h-36">
                 {/* Spin Axis Widget */}
@@ -240,7 +241,7 @@ export const Controls: React.FC<ControlsProps> = ({
              </div>
 
              {/* Data Inputs Grid */}
-             <div className="grid grid-cols-3 gap-1.5">
+             <div className="grid grid-cols-3 gap-1.5 pb-2">
                 
                 {/* Velocity */}
                 <InputCell 
@@ -347,7 +348,7 @@ export const Controls: React.FC<ControlsProps> = ({
         </div>
       )}
 
-      {/* Play Button */}
+      {/* Play Button - Fixed Footer */}
       <div className="mt-3 flex-shrink-0">
         <button
           onClick={onPlay}

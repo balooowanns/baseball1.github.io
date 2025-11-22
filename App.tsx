@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
 import { Controls } from './components/Controls';
@@ -82,7 +83,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-screen bg-slate-900 overflow-hidden font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="relative w-full h-[100dvh] bg-slate-900 overflow-hidden font-sans selection:bg-indigo-500 selection:text-white">
       
       {/* 3D Scene Container */}
       <div className="absolute inset-0 z-0">
