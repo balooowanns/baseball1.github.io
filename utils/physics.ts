@@ -48,7 +48,8 @@ export const calculateTrajectory = (
 
   const v0 = velocityKmh * (1000 / 3600); 
   const theta = launchAngleDeg * (Math.PI / 180); 
-  const phi = sprayAngleDeg * (Math.PI / 180); 
+  // Invert angle: Positive Slider (Right) -> Negative X (Screen Right)
+  const phi = -sprayAngleDeg * (Math.PI / 180); 
 
   let vx = v0 * Math.cos(theta) * Math.sin(phi);
   let vy = v0 * Math.sin(theta);
