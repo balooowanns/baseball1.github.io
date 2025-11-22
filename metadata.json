@@ -1,0 +1,5 @@
+{
+  "name": "Baseball Trajectory Sim 3D",
+  "description": "A physics-based 3D baseball simulator. Calculate flight path based on exit velocity, launch angle, and direction using React Three Fiber.",
+  "requestFramePermissions": []
+}
