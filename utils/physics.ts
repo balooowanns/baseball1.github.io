@@ -14,9 +14,32 @@ const BATTING_LIFT_COEFFICIENT = 0.15;
 const MOUND_DISTANCE = 18.44; // m
 const CATCHER_DEPTH = 1.5; // m (Behind home plate)
 
+// Physics Constants for Batting
+const WALL_HEIGHT = 4.0; // m
+const COR_GROUND = 0.45; // Coefficient of Restitution (Bounce) on Grass
+const COR_WALL = 0.7; // Bounciness of wall
+const STOP_VELOCITY = 0.1; // m/s
+
+// Ground Friction Constants
+// Previous 0.85 multiplier per frame was too aggressive. 
+// Use 0.92 retention for bounce impact.
+const FRICTION_BOUNCE = 0.92; 
+// Kinetic friction coefficient for rolling ball on grass (approx 0.2 - 0.4)
+// Deceleration a = mu * g. 
+const MU_ROLLING = 0.25; 
+
+// Define Wall Geometry (Linear Approximation of Stadium.tsx curve)
+// x1, z1 to x2, z2
+const WALL_SEGMENTS = [
+    { x1: -70.71, z1: 70.71, x2: -42.1, z2: 101.6 }, // Left
+    { x1: -42.1, z1: 101.6, x2: 0, z2: 122 },        // Left Center
+    { x1: 0, z1: 122, x2: 42.1, z2: 101.6 },         // Right Center
+    { x1: 42.1, z1: 101.6, x2: 70.71, z2: 70.71 }    // Right
+];
+
 /**
- * Existing Batting Trajectory Calculation
- * Updated to include Wind parameters
+ * Batting Trajectory Calculation
+ * Now includes Ground Bouncing, Rolling, and Wall Collision
  */
 export const calculateTrajectory = (
   velocityKmh: number,
@@ -33,7 +56,6 @@ export const calculateTrajectory = (
   
   // Negate the spray angle because the camera is looking from -Z towards +Z (reversed standard view).
   // In this view, +X is Left. We want Positive Slider (Right) -> Right Field (-X).
-  // sin(-phi) = -sin(phi).
   const phi = -sprayAngleDeg * (Math.PI / 180); 
 
   let vx = v0 * Math.cos(theta) * Math.sin(phi);
@@ -41,19 +63,12 @@ export const calculateTrajectory = (
   let vz = v0 * Math.cos(theta) * Math.cos(phi);
 
   // Wind Vector Calculation
-  // windDirectionDeg: 0 = Tailwind (to Center/+Z), 90 = Crosswind to Right Field (-X), 180 = Headwind
-  // In world coordinates:
-  // +Z is Center Field.
-  // -X is Right Field.
-  // 0 deg (Up) -> +Z
-  // 90 deg (Right) -> -X
   const windRad = windDirectionDeg * (Math.PI / 180);
-  
   // Note: If windDirectionDeg=90 (Right on UI), we want wind blowing to Right Field (-X).
   // sin(90) = 1. So we need -1 for X.
   const wx = -windSpeedMs * Math.sin(windRad);
   const wz = windSpeedMs * Math.cos(windRad);
-  const wy = 0; // Assuming horizontal wind only
+  const wy = 0; 
 
   let x = 0;
   let y = 0.5; 
@@ -62,52 +77,52 @@ export const calculateTrajectory = (
 
   const points: Point3D[] = [];
   let maxHeight = y;
+  let carryDistance = 0;
+  let hasHitGround = false;
 
-  while (y >= 0 && t < maxTime) {
+  while (t < maxTime) {
+    const prevX = x;
+    const prevZ = z;
+
     points.push({ x, y, z, t });
     if (y > maxHeight) maxHeight = y;
 
-    // Relative Velocity (Airspeed) = Ball Velocity - Wind Velocity
+    // Relative Velocity (Airspeed)
     const vrx = vx - wx;
     const vry = vy - wy;
     const vrz = vz - wz;
-
     const vRelTotal = Math.sqrt(vrx*vrx + vry*vry + vrz*vrz);
     
     let ax = 0, ay = -GRAVITY, az = 0;
 
-    if (vRelTotal > 0) {
-        // Drag Force depends on Relative Velocity
-        // Fd direction is opposite to Relative Velocity
+    // Apply Aerodynamics if moving through air (and not rolling)
+    // If rolling, aerodynamics are negligible compared to friction, but wind might still push.
+    // For simplicity, apply drag always but lift only in air.
+    if (vRelTotal > 0.1) {
+        // Drag
         const Fd = 0.5 * AIR_DENSITY * (vRelTotal ** 2) * DRAG_COEFFICIENT * BALL_AREA;
         const ad = Fd / BALL_MASS;
-        
         const axDrag = -ad * (vrx / vRelTotal);
         const ayDrag = -ad * (vry / vRelTotal);
         const azDrag = -ad * (vrz / vRelTotal);
 
-        // Simple Lift for Batting (Backspin approximation)
-        // Lift acts perpendicular to velocity vector. 
-        // For simplicity in batting, we keep it relative to ground speed direction or simplify
-        // but accurate physics would use vRel for magnitude.
-        // Let's scale Lift by vRel^2 for magnitude
-        const Fl = 0.5 * AIR_DENSITY * (vRelTotal ** 2) * BATTING_LIFT_COEFFICIENT * BALL_AREA;
-        const al = Fl / BALL_MASS;
-        
-        // Apply lift roughly upwards/backwards relative to trajectory
-        // Simplified: Lift acts mostly Up (+Y) and against forward motion slightly
-        // Using ground velocity for direction to keep the arc stable visually
-        const vGroundTotal = Math.sqrt(vx*vx + vy*vy + vz*vz);
-        const horizontalSpeed = Math.sqrt(vx*vx + vz*vz);
-        
-        // Lift component (simplified)
-        const ayLift = al * (horizontalSpeed / vGroundTotal);
+        // Lift (only applies when in air)
+        let axLift = 0, ayLift = 0;
+        if (y > 0.05) { // Slightly above ground
+             const Fl = 0.5 * AIR_DENSITY * (vRelTotal ** 2) * BATTING_LIFT_COEFFICIENT * BALL_AREA;
+             const al = Fl / BALL_MASS;
+             // Simplified Lift Direction (Upwards relative to horizontal motion)
+             const vHorizontal = Math.sqrt(vx*vx + vz*vz);
+             const vTotal = Math.sqrt(vHorizontal*vHorizontal + vy*vy);
+             if(vTotal > 0) ayLift = al * (vHorizontal / vTotal);
+        }
 
-        ax = axDrag;
+        ax = axDrag + axLift;
         ay = -GRAVITY + ayDrag + ayLift;
         az = azDrag;
     }
 
+    // Update Velocity & Position
     vx += ax * dt;
     vy += ay * dt;
     vz += az * dt;
@@ -116,24 +131,139 @@ export const calculateTrajectory = (
     y += vy * dt;
     z += vz * dt;
     t += dt;
+
+    // --- COLLISION DETECTION ---
+
+    // 1. Wall Collision (Outfield Fence)
+    // Check only if we are "deep" enough (z > 60m to save perf) and low enough (< Wall Height)
+    if (z > 60 && y >= 0 && y <= WALL_HEIGHT) {
+        for (const seg of WALL_SEGMENTS) {
+            // Check intersection of Line(prevX,prevZ -> x,z) with Segment(x1,z1 -> x2,z2)
+            const intersect = getLineIntersection(prevX, prevZ, x, z, seg.x1, seg.z1, seg.x2, seg.z2);
+            if (intersect) {
+                // Hit the wall!
+                
+                // Wall Vector
+                const dx = seg.x2 - seg.x1;
+                const dz = seg.z2 - seg.z1;
+                const len = Math.sqrt(dx*dx + dz*dz);
+                
+                // Calculate Midpoint of segment to determine "Inward" direction
+                const midX = (seg.x1 + seg.x2) / 2;
+                const midZ = (seg.z1 + seg.z2) / 2;
+
+                // Normal Calculation (Rotate 90 deg)
+                // Try (-dz, dx) first
+                let nx = -dz / len;
+                let nz = dx / len;
+
+                // If Normal dot Midpoint > 0, it points Outwards (away from origin). Flip it.
+                // (Assuming origin (0,0) is inside)
+                if (nx * midX + nz * midZ > 0) {
+                    nx = -nx;
+                    nz = -nz;
+                }
+
+                // Reflection: Check if velocity is opposing normal (entering wall)
+                const vDotN = vx * nx + vz * nz;
+                
+                if (vDotN < 0) {
+                    // Reflect: V_new = V - 2(V . N)N
+                    vx = (vx - 2 * vDotN * nx) * COR_WALL;
+                    vz = (vz - 2 * vDotN * nz) * COR_WALL;
+                    
+                    // Dampen Y slightly if it hits the wall
+                    vy *= 0.8;
+
+                    // Anti-sticking: Push ball slightly off the wall (Inwards)
+                    // Use intersection point + offset
+                    x = intersect.x + nx * 0.2;
+                    z = intersect.z + nz * 0.2;
+                }
+                
+                break; // Handled collision
+            }
+        }
+    }
+
+    // 2. Ground Collision
+    if (y <= 0) {
+        y = 0; // Clamp
+        
+        // Record carry distance on first bounce
+        if (!hasHitGround) {
+            hasHitGround = true;
+            carryDistance = Math.sqrt(x*x + z*z);
+        }
+
+        // If vertical velocity is very low, treat as rolling
+        if (Math.abs(vy) < 1.0) {
+            // Rolling phase
+            vy = 0;
+            
+            // Apply Rolling Friction (Kinetic Friction)
+            // Deceleration = mu * g
+            const speedXZ = Math.sqrt(vx*vx + vz*vz);
+            
+            if (speedXZ > 0) {
+                const deceleration = MU_ROLLING * GRAVITY; // ~ 2.5 m/s^2
+                const speedLoss = deceleration * dt;
+                
+                if (speedXZ <= speedLoss + STOP_VELOCITY) {
+                    vx = 0;
+                    vz = 0;
+                    break; // Stopped
+                } else {
+                    // Reduce speed by constant amount
+                    const newSpeed = speedXZ - speedLoss;
+                    const ratio = newSpeed / speedXZ;
+                    vx *= ratio;
+                    vz *= ratio;
+                }
+            } else {
+                break; // Already stopped
+            }
+
+        } else {
+            // Bouncing phase
+            vy = -vy * COR_GROUND; 
+            
+            // Friction on impact (Momentary loss of horizontal speed)
+            vx *= FRICTION_BOUNCE;
+            vz *= FRICTION_BOUNCE;
+        }
+    }
   }
 
-  if (points.length > 0 && y < 0) {
-      const last = points[points.length - 1];
-      points.push({ x, y: 0, z, t });
-  } else if (points.length === 0) {
-      points.push({ x:0, y:0, z:0, t:0});
+  // If simulation ended in air (e.g. over the wall or time out), calc distance
+  if (!hasHitGround) {
+      carryDistance = Math.sqrt(x*x + z*z);
   }
-
-  const distance = Math.sqrt(x*x + z*z);
 
   return {
     points,
-    distance,
+    distance: carryDistance,
     maxHeight,
     hangTime: t
   };
 };
+
+// Helper: Line Segment Intersection
+function getLineIntersection(p0_x: number, p0_y: number, p1_x: number, p1_y: number, p2_x: number, p2_y: number, p3_x: number, p3_y: number) {
+    const s1_x = p1_x - p0_x;
+    const s1_y = p1_y - p0_y;
+    const s2_x = p3_x - p2_x;
+    const s2_y = p3_y - p2_y;
+
+    const s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+    const t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+        return { x: p0_x + (t * s1_x), z: p0_y + (t * s1_y) };
+    }
+    return null;
+}
+
 
 /**
  * New Pitching Trajectory Calculation
@@ -201,7 +331,7 @@ export const calculatePitchTrajectory = (params: PitchingParams): TrajectoryResu
     // Failsafe break to prevent freezing
     if (t > MAX_SIMULATION_TIME) break;
 
-    // Ground check (bounce or stop) - simplified to stop
+    // Ground check (bounce or stop) - simplified to stop for pitching
     if (y <= 0) break;
 
     const vTotal = Math.sqrt(vx*vx + vy*vy + vz*vz);
@@ -216,9 +346,6 @@ export const calculatePitchTrajectory = (params: PitchingParams): TrajectoryResu
     // 2. Magnus Force (Lift/Side)
     const S = (BALL_RADIUS * omega) / vTotal;
     // Correct Lift Coefficient based on Spin Factor (S)
-    // Typical baseball Cl ranges from 0.1 to 0.3 depending on S
-    // Formula approx: Cl = 1 / (2.32 + (0.4/S)) is one model, or simpler linear models.
-    // Using a fit for baseball: Cl = 0.30 * S approx for typical range
     const Cl = S; 
 
     const liftForceMag = 0.5 * AIR_DENSITY * (vTotal ** 2) * BALL_AREA * Cl;

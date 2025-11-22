@@ -1,3 +1,4 @@
+import React from 'react';
 
 export type AppMode = 'batting' | 'pitching';
 
@@ -47,3 +48,45 @@ export const STRIKE_ZONE_CONFIG = {
   SIDE_HEIGHT: 0.216, // m (Length of the straight side edge)
   DIAGONAL: 0.305  // m (12 inches approx for back edges)
 };
+
+// Augment JSX namespace to include Three.js elements for @react-three/fiber
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      ambientLight: any;
+      directionalLight: any;
+      group: any;
+      mesh: any;
+      planeGeometry: any;
+      circleGeometry: any;
+      boxGeometry: any;
+      cylinderGeometry: any;
+      sphereGeometry: any;
+      shapeGeometry: any;
+      extrudeGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+    }
+  }
+}
+
+// Also augment React.JSX for newer TS/React versions where JSX is scoped to React
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      ambientLight: any;
+      directionalLight: any;
+      group: any;
+      mesh: any;
+      planeGeometry: any;
+      circleGeometry: any;
+      boxGeometry: any;
+      cylinderGeometry: any;
+      sphereGeometry: any;
+      shapeGeometry: any;
+      extrudeGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+    }
+  }
+}

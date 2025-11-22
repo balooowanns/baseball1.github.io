@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { SimulationParams, PitchingParams, AppMode, STRIKE_ZONE_CONFIG } from '../types';
 import { Sliders, Play, Loader2, Wind } from 'lucide-react';
@@ -151,7 +150,7 @@ export const Controls: React.FC<ControlsProps> = ({
               <label className="text-xs font-bold text-slate-800">角度</label>
               <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/50 px-2 py-0.5 rounded">{battingParams.angle}°</span>
             </div>
-            <input type="range" min="0" max="80" step="1" value={battingParams.angle} onChange={(e) => handleBattingChange('angle', Number(e.target.value))} className="w-full h-2 bg-slate-800/10 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+            <input type="range" min="-45" max="80" step="1" value={battingParams.angle} onChange={(e) => handleBattingChange('angle', Number(e.target.value))} className="w-full h-2 bg-slate-800/10 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
           </div>
 
           {/* Direction */}
