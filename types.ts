@@ -30,6 +30,8 @@ export interface Point3D {
   y: number;
   z: number;
   t: number;
+  breakX?: number; // cm (Horizontal Induced Break)
+  breakY?: number; // cm (Vertical Induced Break)
 }
 
 export interface TrajectoryResult {
@@ -39,6 +41,7 @@ export interface TrajectoryResult {
   hangTime: number;
   finalPosition?: { x: number, y: number }; // End of simulation (ground or catcher)
   plateCrossing?: { x: number, y: number }; // Exact position at z=0 (Home Plate)
+  landingPosition?: { x: number, y: number, z: number }; // First ground contact position for batting
 }
 
 export const STRIKE_ZONE_CONFIG = {
@@ -50,6 +53,7 @@ export const STRIKE_ZONE_CONFIG = {
 };
 
 // Augment JSX namespace to include Three.js elements for @react-three/fiber
+// Also include standard HTML elements to prevent them from being overwritten/lost in the global namespace merge
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -66,27 +70,18 @@ declare global {
       extrudeGeometry: any;
       meshStandardMaterial: any;
       meshBasicMaterial: any;
-    }
-  }
-}
-
-// Also augment React.JSX for newer TS/React versions where JSX is scoped to React
-declare module 'react' {
-  namespace JSX {
-    interface IntrinsicElements {
-      ambientLight: any;
-      directionalLight: any;
-      group: any;
-      mesh: any;
-      planeGeometry: any;
-      circleGeometry: any;
-      boxGeometry: any;
-      cylinderGeometry: any;
-      sphereGeometry: any;
-      shapeGeometry: any;
-      extrudeGeometry: any;
-      meshStandardMaterial: any;
-      meshBasicMaterial: any;
+      // HTML Elements
+      div: any;
+      span: any;
+      button: any;
+      input: any;
+      label: any;
+      h2: any;
+      h3: any;
+      p: any;
+      ul: any;
+      li: any;
+      strong: any;
     }
   }
 }
